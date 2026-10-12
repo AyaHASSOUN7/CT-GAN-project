@@ -1,0 +1,53 @@
+# Environnement virtuel
+venv/
+.env/
+.env
+.env.*
+env/
+ENV/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Tests / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Jupyter / IDE
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+*.log
+
+# Fichiers temporaires / artefacts du projet
+*.tmp
+*.bak
+
+# Optionnel : ignorer les sorties générées par l'application
+models/
+checkpoints/
+output/
+*.pkl
+*.joblib
