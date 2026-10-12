@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Données</title>
+    <!-- Utilisation de Bootstrap pour un style simple et propre -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .container { max-width: 800px; }
+        .card { margin-top: 2rem; }
+        .card-header { background-color: #0d6efd; color: white; }
+        .spinner-border { width: 3rem; height: 3rem; }
+        #loading {
+            display: none; /* Caché par défaut */
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Indicateur de chargement -->
+    <div id="loading">
+        <div>
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="mt-3 text-primary">Entraînement en cours...</h4>
+            <p class="text-muted">Cette opération peut prendre plusieurs minutes.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h5 class="card-header">Outil de Génération de Données Synthétiques</h5>
+            <div class="card-body">
+                
+                <!-- Affichage des messages d'erreur (flash) -->
+                {% with messages = get_flashed_messages() %}
+                  {% if messages %}
+                    <div class="alert alert-danger">
+                      {% for message in messages %}
+                        {{ message }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <form action="/" method="post" enctype="multipart/form-data" onsubmit="return showLoading();">
+                    
+                    <!-- Choix du modèle -->
+                    <div class="mb-4">
+                        <h6>Modèle de génération</h6>
+                        <select class="form-select" name="model_type" id="model_type" required>
+                            <option value="ctgan" selected>CTGAN</option>
+                            <option value="tvae">TVAE</option>
+                            <option value="copulagan">CopulaGAN</option>
+                            <option value="gaussiancopula">GaussianCopula</option>
+                        </select>
+                    </div>
+
+                    <!-- Étape 1: Fichier -->
+                    <div class="mb-4">
+                        <h6>Étape 1 : Charger votre fichier de données</h6>
+                        <label for="file" class="form-label">Sélectionnez un fichier CSV :</label>
+                        <input class="form-control" type="file" id="file" name="file" accept=".csv" required>
+                    </div>
+
+                    <!-- Étape 2: Hyperparamètres -->
+                    <div class="mb-4">
+                        <h6>Étape 2 : Configurer les hyperparamètres du modèle</h6>
+
+                        <!-- Méthode d'optimisation -->
+                        <div class="mb-3">
+                            <label for="search_method" class="form-label">Méthode d'optimisation des hyperparamètres</label>
+                            <select class="form-select" id="search_method" name="search_method" required>
+                                <option value="grid">Recherche par grille</option>
+                                <option value="random">Recherche aléatoire</option>
+                                <option value="bayesian">Recherche bayésienne</option>
+                            </select>
+                            <div class="form-text">Choisissez la méthode pour trouver la meilleure combinaison d'hyperparamètres.</div>
+                        </div>
+
+                        <div class="row ctgan">
+                            <div class="col-md-6 mb-3">
+                                <label for="epochs" class="form-label">Epochs (défaut: 300)</label>
+                                <input type="text" class="form-control" id="epochs" name="epochs" value="300" placeholder="ex: 300,500,1000">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 300,500,1000)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="batch_size" class="form-label">Batch Size (défaut: 500)</label>
+                                <input type="text" class="form-control" id="batch_size" name="batch_size" value="500" placeholder="ex: 500,1000">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 500,1000)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="embedding_dim" class="form-label">Embedding Dimension (défaut: 128)</label>
+                                <input type="text" class="form-control" id="embedding_dim" name="embedding_dim" value="128" placeholder="ex: 128,256,512">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 128,256,512)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="generator_lr" class="form-label">Taux d'app. Générateur (défaut: 0.0002)</label>
+                                <input type="text" class="form-control" id="generator_lr" name="generator_lr" value="0.0002" placeholder="ex: 0.0002,0.001">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 0.0002,0.001)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="discriminator_lr" class="form-label">Taux d'app. Discriminateur (défaut: 0.0002)</label>
+                                <input type="text" class="form-control" id="discriminator_lr" name="discriminator_lr" value="0.0002" placeholder="ex: 0.0002,0.001">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 0.0002,0.001)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="generator_dim" class="form-label">Dimensions Générateur (défaut: 256,256)</label>
+                                <input type="text" class="form-control" id="generator_dim" name="generator_dim" value="256,256" placeholder="ex: 256,256 ou 128,256,512">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des points-virgules (ex : 256,256;128,256,512)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="discriminator_dim" class="form-label">Dimensions Discriminateur (défaut: 256,256)</label>
+                                <input type="text" class="form-control" id="discriminator_dim" name="discriminator_dim" value="256,256" placeholder="ex: 256,256 ou 128,256,512">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des points-virgules (ex : 256,256;128,256,512)</div>
+                            </div>
+                        </div>
+    
+
+
+                        <div class="row tvae">
+                            <div class="col-md-6 mb-3">
+                                <label for="epochs" class="form-label">Epochs (défaut: 300)</label>
+                                <input type="text" class="form-control" id="epochs" name="epochs" value="300" placeholder="ex: 300,500,1000">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 300,500,1000)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="batch_size" class="form-label">Batch Size (défaut: 500)</label>
+                                <input type="text" class="form-control" id="batch_size" name="batch_size" value="500" placeholder="ex: 500,1000">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 500,1000)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="embedding_dim" class="form-label">Embedding Dimension (défaut: 128)</label>
+                                <input type="text" class="form-control" id="embedding_dim" name="embedding_dim" value="128" placeholder="ex: 128,256">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 128,256)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="compress_dims" class="form-label">Dimensions Compression (défaut: 128,128)</label>
+                                <input type="text" class="form-control" id="compress_dims" name="compress_dims" value="128,128" placeholder="ex: 128,128;256,128">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des points-virgules (ex : 128,128;256,128)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="decompress_dims" class="form-label">Dimensions Décompression (défaut: 128,128)</label>
+                                <input type="text" class="form-control" id="decompress_dims" name="decompress_dims" value="128,128" placeholder="ex: 128,128;256,128">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des points-virgules (ex : 128,128;256,128)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="l2scale" class="form-label">L2 Scale (défaut: 0.00001)</label>
+                                <input type="text" class="form-control" id="l2scale" name="l2scale" value="0.00001" placeholder="ex: 0.00001,0.0001">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 0.00001,0.0001)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="loss_factor" class="form-label">Loss Factor (défaut: 2)</label>
+                                <input type="text" class="form-control" id="loss_factor" name="loss_factor" value="2" placeholder="ex: 2,5">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 2,5)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Utiliser GPU (CUDA)</label>
+                                <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="cuda" name="cuda">
+                                <label class="form-check-label" for="cuda">Activer CUDA</label>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div class="row copulagan">
+                            <div class="col-md-6 mb-3">
+                                <label for="epochs" class="form-label">Epochs (défaut: 300)</label>
+                                <input type="text" class="form-control" id="epochs" name="epochs" value="300" placeholder="ex: 300,500,1000">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 300,500,1000)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="batch_size" class="form-label">Batch Size (défaut: 500)</label>
+                                <input type="text" class="form-control" id="batch_size" name="batch_size" value="500" placeholder="ex: 500,1000">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 500,1000)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="embedding_dim" class="form-label">Embedding Dimension (défaut: 128)</label>
+                                <input type="text" class="form-control" id="embedding_dim" name="embedding_dim" value="128" placeholder="ex: 128,256">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 128,256)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="generator_lr" class="form-label">Taux d'app. Générateur (défaut: 0.0002)</label>
+                                <input type="text" class="form-control" id="generator_lr" name="generator_lr" value="0.0002" placeholder="ex: 0.0002,0.001">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 0.0002,0.001)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="discriminator_lr" class="form-label">Taux d'app. Discriminateur (défaut: 0.0002)</label>
+                                <input type="text" class="form-control" id="discriminator_lr" name="discriminator_lr" value="0.0002" placeholder="ex: 0.0002,0.001">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 0.0002,0.001)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="generator_dim" class="form-label">Dimensions Générateur (défaut: 256,256)</label>
+                                <input type="text" class="form-control" id="generator_dim" name="generator_dim" value="256,256" placeholder="ex: 256,256;128,256,512">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des points-virgules (ex : 256,256;128,256,512)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="discriminator_dim" class="form-label">Dimensions Discriminateur (défaut: 256,256)</label>
+                                <input type="text" class="form-control" id="discriminator_dim" name="discriminator_dim" value="256,256" placeholder="ex: 256,256;128,256,512">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des points-virgules (ex : 256,256;128,256,512)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="discriminator_steps" class="form-label">Discriminator Steps (défaut: 1)</label>
+                                <input type="text" class="form-control" id="discriminator_steps" name="discriminator_steps" value="1" placeholder="ex: 1,2,3">
+                                <div class="form-text">Plusieurs valeurs possibles : séparez-les par des virgules (ex : 1,2,3)</div>
+                            </div>
+                        </div>
+
+
+                         
+                        <div class="row gaussiancopula">
+                            <div class="col-md-6 mb-3">
+                                <label for="default_distribution" class="form-label">Distribution Numérique par Défaut</label>
+                                <select class="form-select" name="default_distribution">
+                                    <option value="norm" selected>Normale (Gaussienne)</option>
+                                    <option value="beta">Beta</option>
+                                    <option value="gamma">Gamma</option>
+                                    <option value="lognormal">Lognormal</option>
+                                    <option value="truncated_normal">Normale Tronquée</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enforce_rounding" name="enforce_rounding" checked>
+                                    <label class="form-check-label" for="enforce_rounding">
+                                        Forcer l'arrondi pour les entiers
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+
+                    <!-- {% if numerical_bounds %}
+                        <h6>Définir les bornes pour les colonnes numériques</h6>
+                        {% for col, bounds in numerical_bounds.items() %}
+                            <div class="mb-3">
+                                <label><strong>{{ col }}</strong> (numérique)</label>
+                                <div class="row">
+                                    <div class="col">
+                                        <label for="min_{{ col }}" class="form-label">Min</label>
+                                        <input type="number" class="form-control" name="min_{{ col }}" value="{{ bounds.min }}" step="any">
+                                    </div>
+                                <div class="col">
+                                    <label for="max_{{ col }}" class="form-label">Max</label>
+                                    <input type="number" class="form-control" name="max_{{ col }}" value="{{ bounds.max }}" step="any">
+                                </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endif %} -->
+
+                    
+
+                </div>
+
+                    <!-- Étape 3: Génération -->
+                    <div class="mb-4">
+                        <h6>Étape 3 : Définir la taille de la génération</h6>
+                        <label for="num_rows" class="form-label">Nombre de lignes à générer (défaut: 1000)</label>
+                        <input type="number" class="form-control" id="num_rows" name="num_rows" value="1000" min="1" required>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Lancer la génération</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.onload = function () {
+        // 1. Masquer le div "loading" au démarrage
+        document.getElementById('loading').style.display = 'none';
+
+        // 2. Initialiser l'affichage conditionnel des hyperparamètres
+        const modelSelect = document.getElementById("model_type");
+        const ctganBlock = document.querySelector(".ctgan");
+        const tvaeBlock = document.querySelector(".tvae");
+        const copulaganBlock = document.querySelector(".copulagan");
+        const gaussiancopulaBlock = document.querySelector(".gaussiancopula");
+
+        function toggleModelBlocks() {
+            const selectedModel = modelSelect.value;
+
+            // Masquer les deux blocs
+            if (ctganBlock) ctganBlock.style.display = "none";
+            if (tvaeBlock) tvaeBlock.style.display = "none";
+            if (copulaganBlock) copulaganBlock.style.display = "none";
+            if (gaussiancopulaBlock) gaussiancopulaBlock.style.display = "none";
+
+            // Afficher le bon bloc
+            if (selectedModel === "ctgan" && ctganBlock) {
+                ctganBlock.style.display = "flex"; // ou "block"
+            } else if (selectedModel === "tvae" && tvaeBlock) {
+                tvaeBlock.style.display = "flex";
+            } else if (selectedModel === "copulagan" && copulaganBlock) {
+                copulaganBlock.style.display = "flex";
+            } else if (selectedModel === "gaussiancopula" && gaussiancopulaBlock) {
+                gaussiancopulaBlock.style.display = "flex";
+            }
+        }
+
+        // Appel au chargement
+        if (modelSelect) {
+            toggleModelBlocks();
+            modelSelect.addEventListener("change", toggleModelBlocks);
+        }
+    };
+
+    function showLoading() {
+        // Affichage conditionnel du div "loading"
+        var fileInput = document.getElementById('file');
+        var loadingDiv = document.getElementById('loading');
+
+        if (fileInput && fileInput.files.length > 0) {
+            loadingDiv.style.display = 'flex';
+            loadingDiv.classList.add('d-flex', 'justify-content-center', 'align-items-center');
+            return true;
+        } else {
+            alert('Veuillez sélectionner un fichier CSV avant de lancer la génération.');
+            return false;
+        }
+    }
+</script>
+
+
+</body>
+</html>
